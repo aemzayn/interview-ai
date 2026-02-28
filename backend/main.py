@@ -1,16 +1,30 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.routers import cv, interview
 from app.routers import auth, users
+from app.db.connection import init_pool, close_pool
+from app.db.schema import init_db
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_pool()
+    await init_db()
+    yield
+    await close_pool()
+
 
 app = FastAPI(
     title="Interview AI API",
     description="AI-powered interview training platform",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

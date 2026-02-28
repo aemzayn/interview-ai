@@ -1,5 +1,5 @@
 .PHONY: dev dev-backend dev-frontend install install-backend install-frontend \
-        docker-up docker-down health test-cv
+        docker-up docker-down health test-cv db-up db-down db-shell
 
 # ── Development ──────────────────────────────────────────────────────────────
 
@@ -43,3 +43,14 @@ setup-env: ## Copy .env.example to .env (won't overwrite existing)
 	cp -n .env.example backend/.env || true
 	cp -n .env.example frontend/.env.local || true
 	@echo "✓ .env files created. Edit them with your API keys."
+
+# ── Database ───────────────────────────────────────────────────────────────────
+
+db-up: ## Start only the PostgreSQL container
+	docker compose up -d postgres
+
+db-down: ## Stop and remove the PostgreSQL container (data volume preserved)
+	docker compose stop postgres && docker compose rm -f postgres
+
+db-shell: ## Open a psql shell into the running postgres container
+	docker compose exec postgres psql -U interview -d interviewai

@@ -21,34 +21,34 @@ def _require_user(request: Request) -> str:
 @router.get("/me/history", response_model=list[SessionSummary])
 async def get_history(request: Request):
     user_id = _require_user(request)
-    history = get_user_store().get_history(user_id)
+    history = await get_user_store().get_history(user_id)
 
-    summaries = []
-    for results, mode, difficulty in reversed(history):  # newest first
-        summaries.append(
-            SessionSummary(
-                session_id=results.session_id,
-                mode=mode,
-                difficulty=difficulty,
-                overall_score=results.overall_score,
-                grade=results.grade,
-                total_questions=len(results.answer_reviews),
-                date=results.answer_reviews[0].question_id[:8] if results.answer_reviews else "",
-                top_strengths=results.top_strengths[:3],
-                top_improvements=results.top_improvements[:3],
-            )
+    return [
+        SessionSummary(
+            session_id=results.session_id,
+            mode=mode,
+            difficulty=difficulty,
+            overall_score=results.overall_score,
+            grade=results.grade,
+            total_questions=len(results.answer_reviews),
+            date="",
+            top_strengths=results.top_strengths[:3],
+            top_improvements=results.top_improvements[:3],
         )
-    return summaries
+        for results, mode, difficulty in reversed(history)  # newest first
+    ]
 
 
 @router.get("/me/overview", response_model=OverviewResponse)
 async def get_overview(request: Request):
     user_id = _require_user(request)
-    user = get_user_store().get_user_by_id(user_id)
+    store = get_user_store()
+
+    user = await store.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    history = get_user_store().get_history(user_id)
+    history = await store.get_history(user_id)
     if not history:
         return OverviewResponse(
             total_sessions=0,
@@ -65,24 +65,21 @@ async def get_overview(request: Request):
     all_strengths = [s for r, _, _ in history for s in r.top_strengths]
     all_improvements = [s for r, _, _ in history for s in r.top_improvements]
 
-    # Build sessions summary
-    sessions = []
-    for results, mode, difficulty in reversed(history):
-        sessions.append(
-            SessionSummary(
-                session_id=results.session_id,
-                mode=mode,
-                difficulty=difficulty,
-                overall_score=results.overall_score,
-                grade=results.grade,
-                total_questions=len(results.answer_reviews),
-                date="",
-                top_strengths=results.top_strengths[:2],
-                top_improvements=results.top_improvements[:2],
-            )
+    sessions = [
+        SessionSummary(
+            session_id=results.session_id,
+            mode=mode,
+            difficulty=difficulty,
+            overall_score=results.overall_score,
+            grade=results.grade,
+            total_questions=len(results.answer_reviews),
+            date="",
+            top_strengths=results.top_strengths[:2],
+            top_improvements=results.top_improvements[:2],
         )
+        for results, mode, difficulty in reversed(history)
+    ]
 
-    # Build AI recommendation
     sessions_data = [
         {
             "mode": mode,
@@ -92,7 +89,7 @@ async def get_overview(request: Request):
             "strengths": results.top_strengths,
             "improvements": results.top_improvements,
         }
-        for results, mode, difficulty in history[-10:]  # last 10 sessions
+        for results, mode, difficulty in history[-10:]
     ]
 
     try:
@@ -102,7 +99,7 @@ async def get_overview(request: Request):
         data = json.loads(response_text.strip())
         ai_recommendation = data.get("ai_recommendation", "")
     except Exception:
-        ai_recommendation = "Unable to generate personalised recommendation at this time. Please try again later."
+        ai_recommendation = "Unable to generate personalised recommendation at this time."
 
     return OverviewResponse(
         total_sessions=len(history),

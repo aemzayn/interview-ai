@@ -112,6 +112,18 @@ export const api = {
       }),
 
     me: (): Promise<UserPublic> => request<UserPublic>("/api/auth/me"),
+
+    /** Returns the Google OAuth authorization URL to redirect the user to. */
+    googleUrl: (): Promise<{ url: string }> =>
+      request<{ url: string }>("/api/auth/google"),
+
+    /** Exchange an OAuth authorization code (from Google's redirect) for an app JWT. */
+    googleExchange: (code: string): Promise<TokenResponse> =>
+      request<TokenResponse>("/api/auth/google/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      }),
   },
 
   // ── User dashboard ────────────────────────────────────────────────────────────

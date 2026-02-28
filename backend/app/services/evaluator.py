@@ -1,20 +1,17 @@
 import asyncio
-from app.models.interview import InterviewSession, InterviewMode
+from app.models.interview import InterviewSession
 from app.models.results import AnswerScore, InterviewResults
 from app.ai.factory import get_ai_provider
 from app.services.session_store import get_session_store
-from app.services.user_store import get_user_store
 
 
 async def evaluate_session(session: InterviewSession) -> InterviewResults:
-    """Evaluate all answers in a session concurrently, then generate overall feedback."""
+    """Evaluate all answers concurrently, then generate overall feedback and persist."""
     provider = get_ai_provider()
     store = get_session_store()
 
-    # Build a map of question_id -> Question
     question_map = {q.question_id: q for q in session.questions}
 
-    # Evaluate all answers concurrently
     tasks = [
         provider.evaluate_answer(
             question=question_map[answer.question_id],
@@ -28,7 +25,6 @@ async def evaluate_session(session: InterviewSession) -> InterviewResults:
 
     answer_scores: list[AnswerScore] = await asyncio.gather(*tasks)
 
-    # Generate overall feedback
     results = await provider.generate_overall_feedback(
         answer_scores=list(answer_scores),
         cv_profile=session.cv_profile,
@@ -36,16 +32,14 @@ async def evaluate_session(session: InterviewSession) -> InterviewResults:
         session_id=session.session_id,
     )
 
-    # Persist results in session store
-    store.store_results(session.session_id, results)
-
-    # Also persist to user history if session belongs to an authenticated user
-    if session.user_id:
-        get_user_store().add_result(
-            user_id=session.user_id,
-            results=results,
-            mode=session.mode.value,
-            difficulty=session.difficulty.value,
-        )
+    # Persist to interview_results — include user linkage if authenticated.
+    # This single write covers both the results-page lookup and the user history.
+    await store.store_results(
+        session_id=session.session_id,
+        results=results,
+        user_id=session.user_id,
+        mode=session.mode.value,
+        difficulty=session.difficulty.value,
+    )
 
     return results

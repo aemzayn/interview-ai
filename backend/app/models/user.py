@@ -7,9 +7,13 @@ from datetime import datetime
 class User(BaseModel):
     user_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     email: str
-    hashed_password: str
+    hashed_password: Optional[str] = None  # None for Google-only accounts
     display_name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class GoogleExchangeRequest(BaseModel):
+    code: str
 
 
 class UserCreate(BaseModel):

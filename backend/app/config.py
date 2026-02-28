@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-secret-change-in-production-please"
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 168  # 7 days
+    database_url: str = "postgresql://interview:interview@localhost:5432/interviewai"
+    # "development" enables email/password auth; "production" disables it (Google only)
+    app_env: Literal["development", "production"] = "development"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:3000/auth/callback"
 
 
 @lru_cache
